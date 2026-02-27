@@ -1,1 +1,107 @@
-S3Audio demo page
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>S3Audio Demo</title>
+
+  <link rel="stylesheet" href="./styles.css" />
+
+  <!-- A-Frame for 360 video -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Omnitone (local copy recommended) -->
+  <script src="./assets/lib/omnitone.min.js"></script>
+</head>
+
+<body>
+  <main class="container">
+    <!-- Title -->
+    <section class="section center">
+      <h1 class="title">S3Audio: Towards Streaming Synchronized Spatial Audio Generation via Autoregressive Diffusion Transformer</h1>
+      <!-- <div class="subtitle">
+        Towards Streaming Synchronized Spatial Audio Generation via Autoregressive Diffusion Transformer
+      </div> -->
+
+      <!-- <div class="links">
+        <a class="link" href="#" target="_blank" rel="noopener">Paper</a>
+        <span class="dot">•</span>
+        <a class="link" href="#" target="_blank" rel="noopener">Code</a>
+        <span class="dot">•</span>
+        <a class="link" href="#" target="_blank" rel="noopener">Dataset</a>
+      </div> -->
+
+      <div class="note">
+        🎧 Please use headphones. Drag inside each 360° viewer to look around.
+        Each cell decodes FOA to binaural in-browser via Omnitone.
+      </div>
+    </section>
+
+    <!-- Abstract -->
+    <section class="section center narrow">
+      <h2>Abstract</h2>
+      <p class="text">
+        Real-time and accurate spatial audio generation is pivotal for delivering an immersive experience. However, existing spatial audio synthesis technologies are often encumbered by a tradeoff between generation quality and high inference latency, as well as difficulty in capturing precise spatial information from multimodal inputs. To address these challenges, we propose S3Audio, a unified streaming framework for high-fidelity spatial audio generation from panoramic videos and text prompts. S3Audio mainly makes the following contributions: 1) We introduce a causal autoregressive diffusion transformer architecture that enables streaming high-quality spatial audio generation. 2) We design a Spatial Video–Audio Contrastive (SVAC) learning strategy to align the video encoder with the acoustic domain, and further employ a multi-objective online direct preference optimization(ODPO) scheme, resulting in strong spatial perception and robust multimodal spatial audio synthesis. 3) To alleviate the current scarcity of spatial audio datasets, we also develop an automated annotation pipeline for generating detailed spatial captions. Experimental results demonstrate that S3Audio achieves superior performance in both video-to-spatial and text-to-spatial audio generation tasks.
+      </p>
+    </section>
+
+    <!-- Overview (single column) -->
+    <section class="section center">
+      <h2>Overview</h2>
+
+      <!-- <div class="block">
+        <h3 class="block-title">Streaming Illustration</h3>
+        <div class="media">
+          <img
+            src="./assets/overview/streaming.gif"
+            alt="Streaming illustration"
+            onerror="this.parentNode.innerHTML='<div class=&quot;placeholder&quot;>Put file at ./assets/overview/streaming.gif</div>';"
+          />
+        </div>
+      </div> -->
+
+      <div class="block">
+        <div class="media">
+          <img
+            src="./assets/overview/framework.png"
+            alt="Framework figure"
+            onerror="this.parentNode.innerHTML='<div class=&quot;placeholder&quot;>Put file at ./assets/overview/framework.png</div>';"
+          />
+        </div>
+      
+        <div class="figure-caption">
+          <p>
+            Overview of the S3Audio framework. The left side illustrates the training
+            pipeline based on the teacher forcing strategy, which supports both video
+            and textual modalities during training. The upper-right section details
+            our SVAC (Spatial Video-Audio Contrastive Learning) strategy for enhancing
+            the Video Encoder’s alignment capability. The lower-right section
+            introduces the Multi-Objective Preference Alignment post-training pipeline
+            of S3Audio.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- V2SA -->
+    <section class="section center">
+      <h2>Comparisons with Baselines</h2>
+
+      <div class="table-wrap">
+        <div class="table-head">
+          <div class="th">Ground Truth</div>
+          <div class="th">ViSAGe</div>
+          <div class="th">OmniAudio</div>
+          <div class="th">S3Audio</div>
+        </div>
+
+        <div id="v2saRows" class="rows"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script src="./script.js"></script>
+</body>
+</html>

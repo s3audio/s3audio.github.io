@@ -68,7 +68,7 @@
             onerror="this.parentNode.innerHTML='<div class=&quot;placeholder&quot;>Put file at ./assets/overview/framework.png</div>';"
           />
         </div>
-      
+
         <div class="figure-caption">
           <p>
             Overview of the S3Audio framework. The left side illustrates the training
@@ -84,8 +84,8 @@
     </section>
 
     <!-- V2SA -->
-    <section class="section center">
-      <h2>Comparisons with Baselines</h2>
+    <section class="section center"  id="v2saSection">
+      <h2>Comparisons with Baselines: Video-to-Spatial Audio</h2>
 
       <div class="table-wrap">
         <div class="table-head">
@@ -96,6 +96,24 @@
         </div>
 
         <div id="v2saRows" class="rows"></div>
+      </div>
+
+    </section>
+
+    <!-- T2SA (NEW) -->
+    <section class="section center" id="t2saSection">
+      <h2>Comparisons with Baselines: Text-to-Spatial Audio</h2>
+
+      <div class="table-wrap">
+        <div class="table-head cols-5">
+          <div class="th">Text</div>
+          <div class="th">Ground Truth</div>
+          <div class="th">MMAudio+AS</div>
+          <div class="th">OmniAudio (text)</div>
+          <div class="th">S3Audio</div>
+        </div>
+
+        <div id="t2saRows" class="rows"></div>
       </div>
 
     </section>

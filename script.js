@@ -110,8 +110,8 @@ const T2SA_DEMOS = [
     text: "The distant roar of a train, accompanied by the rhythmic clacking of tracks, gradually approaches from the left to right.",
     foa: {
       gt: "./assets/t2sa/G8pABGosD38_17/G8pABGosD38_17_gt.wav",
-      mmaudio_as: "./assets/t2sa/G8pABGosD38_17/G8pABGosD38_17_mm.wav",
-      omniaudio_text: "./assets/t2sa/G8pABGosD38_17/G8pABGosD38_17_omni.wav",
+      mmaudio_as: "./assets/t2sa/G8pABGosD38_17/G8pABGosD38l_17_mm.wav",
+      omniaudio_text: "./assets/t2sa/G8pABGosD38_17/G8pABGosD38l_17_omni.wav",
       s3audio: "./assets/t2sa/G8pABGosD38_17/G8pABGosD38_17.wav",
     }
   },

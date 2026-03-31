@@ -147,7 +147,6 @@ async function ensureAudio(){
     await FOA_RENDERER.initialize();
     FOA_RENDERER.output.connect(AUDIO_CTX.destination);
   }
-
 }
 
 function stopFOA(){
@@ -158,13 +157,46 @@ function stopFOA(){
   }
 }
 
+function decodeWAV(arrayBuffer){
+  const view = new DataView(arrayBuffer);
+  let offset = 12; // skip RIFF header
+  let fmt, dataOffset, dataSize;
+  while (offset < view.byteLength) {
+    const id = String.fromCharCode(view.getUint8(offset), view.getUint8(offset+1), view.getUint8(offset+2), view.getUint8(offset+3));
+    const size = view.getUint32(offset + 4, true);
+    if (id === "fmt ") {
+      fmt = {
+        channels: view.getUint16(offset + 10, true),
+        sampleRate: view.getUint32(offset + 12, true),
+        bitsPerSample: view.getUint16(offset + 22, true),
+      };
+    } else if (id === "data") {
+      dataOffset = offset + 8;
+      dataSize = size;
+    }
+    offset += 8 + size;
+  }
+  const bytesPerSample = fmt.bitsPerSample / 8;
+  const numSamples = dataSize / (fmt.channels * bytesPerSample);
+  const audioBuffer = AUDIO_CTX.createBuffer(fmt.channels, numSamples, fmt.sampleRate);
+  const raw = new DataView(arrayBuffer, dataOffset, dataSize);
+  for (let ch = 0; ch < fmt.channels; ch++) {
+    const chData = audioBuffer.getChannelData(ch);
+    for (let i = 0; i < numSamples; i++) {
+      const bytePos = (i * fmt.channels + ch) * bytesPerSample;
+      chData[i] = raw.getInt16(bytePos, true) / 32768;
+    }
+  }
+  return audioBuffer;
+}
+
 async function playFOA(url){
   await ensureAudio();
   stopFOA();
 
   const resp = await fetch(url);
   const buf = await resp.arrayBuffer();
-  const audioBuffer = await AUDIO_CTX.decodeAudioData(buf);
+  const audioBuffer = decodeWAV(buf);
 
   const src = AUDIO_CTX.createBufferSource();
   src.buffer = audioBuffer;
@@ -261,8 +293,6 @@ function makeCell(demo, key, label){
       videoEl.muted = true; // 视频静音，音频走 Omnitone
       await videoEl.play();
 
-      // 这里你原本没接 FOA 播放逻辑（只是初始化 Omnitone）
-      // 如果你后续要接入 FOA 播放，我们再加。
       await playFOA(demo.foa[key]);
       status.textContent = `${label} (playing)`;
     } catch (e) {

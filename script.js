@@ -136,6 +136,7 @@ let ACTIVE_AUDIO_SRC = null;
 
 async function ensureAudio(){
   if (!AUDIO_CTX) AUDIO_CTX = new (window.AudioContext || window.webkitAudioContext)();
+  if (AUDIO_CTX.state !== "running") await AUDIO_CTX.resume();
 
   // Omnitone 可能没加载成功（路径错），这里做个保护
   if (!FOA_RENDERER) {
@@ -147,7 +148,6 @@ async function ensureAudio(){
     FOA_RENDERER.output.connect(AUDIO_CTX.destination);
   }
 
-  if (AUDIO_CTX.state !== "running") await AUDIO_CTX.resume();
 }
 
 function stopFOA(){

@@ -263,6 +263,7 @@ function makeCell(demo, key, label){
 
       // 这里你原本没接 FOA 播放逻辑（只是初始化 Omnitone）
       // 如果你后续要接入 FOA 播放，我们再加。
+      await playFOA(demo.foa[key]);
       status.textContent = `${label} (playing)`;
     } catch (e) {
       console.error(e);
@@ -275,6 +276,7 @@ function makeCell(demo, key, label){
     if (videoEl) {
       try { videoEl.pause(); } catch {}
     }
+    stopFOA();
     status.textContent = `${label} (stopped)`;
   });
 

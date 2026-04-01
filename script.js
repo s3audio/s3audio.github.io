@@ -1,22 +1,22 @@
 const V2SA_DEMOS = [
   {
     id: "demo01",
-    video360: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_86.mp4",
-    foa: {
-      gt: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_86_gt.wav",
-      visage: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_visage.wav",
-      omniaudio: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_86_omni.wav",
-      s3audio: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_86.wav",
-    }
-  },
-  {
-    id: "demo02",
     video360: "./assets/v2sa/1WFJLucjK50_529/1WFJLucjK50_529.mp4",
     foa: {
       gt: "./assets/v2sa/1WFJLucjK50_529/1WFJLucjK50_529_gt.wav",
       visage: "./assets/v2sa/1WFJLucjK50_529/1WFJLucjK50_visage.wav",
       omniaudio: "./assets/v2sa/1WFJLucjK50_529/1WFJLucjK50_529_omni.wav",
       s3audio: "./assets/v2sa/1WFJLucjK50_529/1WFJLucjK50_529.wav",
+    }
+  },
+  {
+    id: "demo02",
+    video360: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_86.mp4",
+    foa: {
+      gt: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_86_gt.wav",
+      visage: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_visage.wav",
+      omniaudio: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_86_omni.wav",
+      s3audio: "./assets/v2sa/1whJPpizoDA_86/1whJPpizoDA_86.wav",
     }
   },
   {
@@ -130,9 +130,103 @@ const T2SA_DEMOS = [
 let ACTIVE_CELL = null;
 let AUDIO_CTX = null;
 let FOA_RENDERER = null;
+let ACTIVE_CAM_EL = null;   // 当前播放 cell 对应的 a-entity[camera]
+let _rafId = null;           // requestAnimationFrame id
 
 /* ====== Audio (extended minimally for T2SA playback) ====== */
 let ACTIVE_AUDIO_SRC = null;
+let _outAnalyserL = null, _outAnalyserR = null;  // Omnitone 输出端左右声道分析
+let _inAnalysers = [];  // FOA 输入端 4 声道分析
+
+/* ====== 每帧把相机旋转同步给 Omnitone ====== */
+// 与 OmniAudio 一致：quaternion 求逆 → 3×3 矩阵 → setRotationMatrix3
+const _quat = new THREE.Quaternion();
+const _mat3 = new Float32Array(9);
+let _lastLogTime = 0;
+
+function _quatToMat3(out, q){
+  const x=q.x, y=q.y, z=q.z, w=q.w;
+  const x2=x+x, y2=y+y, z2=z+z;
+  const xx=x*x2, xy=x*y2, xz=x*z2;
+  const yy=y*y2, yz=y*z2, zz=z*z2;
+  const wx=w*x2, wy=w*y2, wz=w*z2;
+  out[0]=1-yy-zz; out[1]=xy+wz;   out[2]=xz-wy;
+  out[3]=xy-wz;   out[4]=1-xx-zz; out[5]=yz+wx;
+  out[6]=xz+wy;   out[7]=yz-wx;   out[8]=1-xx-yy;
+}
+
+function _syncRotationLoop(){
+  if (!FOA_RENDERER || !ACTIVE_CAM_EL) {
+    _rafId = requestAnimationFrame(_syncRotationLoop);
+    return;
+  }
+
+  const obj = ACTIVE_CAM_EL.object3D;
+  if (!obj) {
+    _rafId = requestAnimationFrame(_syncRotationLoop);
+    return;
+  }
+
+  // 取相机世界朝向的 quaternion，求逆，转 3×3 矩阵
+  obj.getWorldQuaternion(_quat);
+  _quat.invert();
+  _quatToMat3(_mat3, _quat);
+  FOA_RENDERER.setRotationMatrix3(_mat3);
+
+  // 每秒打印一次诊断：旋转 + Omnitone 输出端左右声道实时能量
+  const now = performance.now();
+  if (now - _lastLogTime > 1000) {
+    _lastLogTime = now;
+    const rot = ACTIVE_CAM_EL.getAttribute('rotation');
+
+    // 读取 Omnitone 输出（双耳立体声）的左右声道能量
+    let outInfo = '';
+    if (_outAnalyserL && _outAnalyserR) {
+      const bufL = new Float32Array(_outAnalyserL.fftSize);
+      const bufR = new Float32Array(_outAnalyserR.fftSize);
+      _outAnalyserL.getFloatTimeDomainData(bufL);
+      _outAnalyserR.getFloatTimeDomainData(bufR);
+      let rmsL = 0, rmsR = 0;
+      for (let i = 0; i < bufL.length; i++) { rmsL += bufL[i]*bufL[i]; rmsR += bufR[i]*bufR[i]; }
+      rmsL = Math.sqrt(rmsL / bufL.length);
+      rmsR = Math.sqrt(rmsR / bufR.length);
+      outInfo = `| outL=${rmsL.toFixed(4)} outR=${rmsR.toFixed(4)} ratio=${(rmsL/(rmsR+1e-8)).toFixed(2)}`;
+    }
+
+    // 读取 FOA 输入端各声道能量
+    let inInfo = '';
+    if (_inAnalysers.length === 4) {
+      const names = ['W','Y','Z','X'];
+      const rms = [];
+      for (let ch = 0; ch < 4; ch++) {
+        const buf = new Float32Array(_inAnalysers[ch].fftSize);
+        _inAnalysers[ch].getFloatTimeDomainData(buf);
+        let s = 0;
+        for (let i = 0; i < buf.length; i++) s += buf[i]*buf[i];
+        rms.push(Math.sqrt(s / buf.length));
+      }
+      inInfo = `| in: ${names.map((n,i) => n+'='+rms[i].toFixed(4)).join(' ')}`;
+    }
+
+    console.log('[FOA]',
+      'yaw:', rot ? rot.y.toFixed(1) : 'N/A',
+      outInfo,
+      inInfo,
+      '| ready:', FOA_RENDERER._isRendererReady
+    );
+  }
+
+  _rafId = requestAnimationFrame(_syncRotationLoop);
+}
+
+function _startSyncLoop(){
+  if (!_rafId) _rafId = requestAnimationFrame(_syncRotationLoop);
+}
+
+function _stopSyncLoop(){
+  if (_rafId) { cancelAnimationFrame(_rafId); _rafId = null; }
+  ACTIVE_CAM_EL = null;
+}
 
 async function ensureAudio(){
   if (!AUDIO_CTX) AUDIO_CTX = new (window.AudioContext || window.webkitAudioContext)();
@@ -145,11 +239,36 @@ async function ensureAudio(){
     }
     FOA_RENDERER = Omnitone.createFOARenderer(AUDIO_CTX);
     await FOA_RENDERER.initialize();
+
+    // 在 Omnitone 输出和 destination 之间插入分析节点（左右声道）
+    const outSplitter = AUDIO_CTX.createChannelSplitter(2);
+    _outAnalyserL = AUDIO_CTX.createAnalyser(); _outAnalyserL.fftSize = 2048;
+    _outAnalyserR = AUDIO_CTX.createAnalyser(); _outAnalyserR.fftSize = 2048;
+    FOA_RENDERER.output.connect(outSplitter);
+    outSplitter.connect(_outAnalyserL, 0);
+    outSplitter.connect(_outAnalyserR, 1);
     FOA_RENDERER.output.connect(AUDIO_CTX.destination);
+
+    // 在 Omnitone 输入端插入分析节点（4 声道）
+    // FOA_RENDERER.input 是 channelCount=4 的 GainNode
+    // 我们用 splitter 分出来监测
+    const inSplitter = AUDIO_CTX.createChannelSplitter(4);
+    _inAnalysers = [];
+    for (let ch = 0; ch < 4; ch++) {
+      const a = AUDIO_CTX.createAnalyser(); a.fftSize = 2048;
+      inSplitter.connect(a, ch);
+      _inAnalysers.push(a);
+    }
+    FOA_RENDERER.input.connect(inSplitter);
+
+    console.log('[FOA] Omnitone initialized. renderingMode:', FOA_RENDERER._config.renderingMode,
+      'channelMap:', FOA_RENDERER._config.channelMap,
+      'isReady:', FOA_RENDERER._isRendererReady);
   }
 }
 
 function stopFOA(){
+  _stopSyncLoop();
   if (ACTIVE_AUDIO_SRC) {
     try { ACTIVE_AUDIO_SRC.stop(); } catch {}
     try { ACTIVE_AUDIO_SRC.disconnect(); } catch {}
@@ -178,6 +297,7 @@ function decodeWAV(arrayBuffer){
   }
   const bytesPerSample = fmt.bitsPerSample / 8;
   const numSamples = dataSize / (fmt.channels * bytesPerSample);
+  console.log('[FOA] WAV decoded:', fmt.channels, 'ch,', fmt.sampleRate, 'Hz,', fmt.bitsPerSample, 'bit,', numSamples, 'samples');
   const audioBuffer = AUDIO_CTX.createBuffer(fmt.channels, numSamples, fmt.sampleRate);
   const raw = new DataView(arrayBuffer, dataOffset, dataSize);
   for (let ch = 0; ch < fmt.channels; ch++) {
@@ -187,6 +307,17 @@ function decodeWAV(arrayBuffer){
       chData[i] = raw.getInt16(bytePos, true) / 32768;
     }
   }
+
+  // 诊断：各声道 RMS 能量
+  const chNames = ['W(omni)', 'Y(left-right)', 'Z(up-down)', 'X(front-back)'];
+  for (let ch = 0; ch < audioBuffer.numberOfChannels; ch++) {
+    const d = audioBuffer.getChannelData(ch);
+    let sum = 0;
+    for (let i = 0; i < d.length; i++) sum += d[i] * d[i];
+    const rms = Math.sqrt(sum / d.length);
+    console.log(`[FOA] ch${ch} ${chNames[ch] || ''} RMS: ${rms.toFixed(4)}`);
+  }
+
   return audioBuffer;
 }
 
@@ -294,6 +425,15 @@ function makeCell(demo, key, label){
       await videoEl.play();
 
       await playFOA(demo.foa[key]);
+
+      // playFOA 内部会 stopFOA → _stopSyncLoop，所以必须在之后启动同步
+      ACTIVE_CAM_EL = document.getElementById(camId);
+      _startSyncLoop();
+      console.log('[FOA] play started. camId:', camId,
+        'camEl found:', !!ACTIVE_CAM_EL,
+        'object3D:', !!ACTIVE_CAM_EL?.object3D,
+        'syncLoop running:', !!_rafId);
+
       status.textContent = `${label} (playing)`;
     } catch (e) {
       console.error(e);
